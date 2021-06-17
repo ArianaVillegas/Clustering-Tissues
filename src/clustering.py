@@ -1,7 +1,9 @@
 import numpy as np
+from scipy.stats import multivariate_normal
 from sklearn.neighbors import KDTree
+from statsmodels.stats.correlation_tools import cov_nearest
 
-from python.utils import multivariate_normal
+from src.utils import get_near_psd
 
 
 def group_classes_1(centroids, dataset):
@@ -37,6 +39,7 @@ def k_means(dataset, k=3):
         for i in range(k):
             centroids[i] = np.mean([dataset[j] for j in classes[i]], axis=0)
     return group_classes_1(centroids, dataset)
+    # return centroids
 
 
 def mean_shift(dataset, radio=10):
@@ -90,39 +93,61 @@ def dbscan(dataset, radio=1, min_pts=4):
     return group_classes_2(labels, dataset)
 
 
-def gmm(dataset, n_k=3, max_iter=100):
-    dataset_split = np.array_split(dataset, n_k)
+def gmm(dataset, n_k=3, max_iter=100, tol=1e-3):
+    classes, centroids = k_means(dataset, n_k)
 
-    pi = [1/n_k for i in range(n_k)]
-    means = [np.mean(subset, axis=0) for subset in dataset_split]
-    covariances = [np.cov(subset.T) for subset in dataset_split]
+    # 1. Initialization
+    pi = np.array([1 / n_k for _ in range(n_k)], dtype=np.float128)
+    means = np.array(centroids, dtype=np.float128)
+    # covariances = np.array([cov_nearest(np.cov(np.array(classes[i]).T)) for i in range(n_k)], dtype=np.float128)
+    covariances = [np.identity(dataset.shape[1], dtype=np.float128) for _ in range(n_k)]
+    print(means)
 
-    del dataset_split
-
+    prev_log_likelihood = -np.infty
     for itr in range(max_iter):
-        gamma = np.zeros((dataset.shape[0], n_k))
+        print("itr", itr)
+        # 2. E step
+        gamma = np.zeros((dataset.shape[0], n_k), dtype=np.float128)
         for n in range(dataset.shape[0]):
             for k in range(n_k):
-                gamma[n][k] = pi[k] * multivariate_normal(dataset[n], means[k], covariances[k])
-                gamma[n][k] /= sum([pi[j] * multivariate_normal(dataset[n], means[j], covariances[j]) for j in range(n_k)])
+                # print(covariances[k].shape)
+                print(multivariate_normal(means[k], covariances[k]).pdf(dataset[n]))
+                gamma[n][k] = pi[k] * multivariate_normal.pdf(dataset[n], means[k], covariances[k], allow_singular=True)
+                gamma[n][k] /= sum([pi[j] * multivariate_normal.pdf(dataset[n], means[j], covariances[j], allow_singular=True) for j in range(n_k)])
+        #print(gamma)
         N = np.sum(gamma, axis=0)
 
+        print(N)
+
+        # 3. M step
         means = np.zeros((n_k, dataset.shape[1]))
         for k in range(n_k):
             for n in range(dataset.shape[0]):
                 means[k] += gamma[n][k] * dataset[n]
-        means = [1/N[k] * means[k] for k in range(n_k)]
+        means = [1 / N[k] * means[k] for k in range(n_k)]
 
-        covariances = [np.zeros((dataset.shape[0], dataset.shape[0])) for k in range(n_k)]
+        covariances = [np.zeros((dataset.shape[1], dataset.shape[1])) for _ in range(n_k)]
         for k in range(n_k):
-            covariances[k] = np.cov(dataset.T, aweights=(gamma[:, k]), ddof=0)
-        covariances = [1/N[k] * covariances[k] for k in range(n_k)]
+            # for n in range(dataset.shape[0]):
+                # print((dataset[n] - means[k]) * (dataset[n] - means[k]).T)
+                # covariances[k] += gamma[n][k] * (dataset[n] - means[k]) * (dataset[n] - means[k]).T
+            covariances[k] = cov_nearest(np.cov(dataset.T, aweights=(gamma[:, k]), ddof=0))
+        covariances = [1 / N[k] * covariances[k] for k in range(n_k)]
 
-        pi = [N[k]/dataset.shape[0] for k in range(n_k)]
+        pi = [N[k] / dataset.shape[0] for k in range(n_k)]
+
+        # 4. Evaluate log likelihood
+        log_likelihood = 0
+        for n in range(dataset.shape[0]):
+            log_likelihood += abs(np.log(sum([pi[j] * multivariate_normal.pdf(dataset[n], means[j], covariances[j], allow_singular=True) for j in range(n_k)])))
+        print(prev_log_likelihood, log_likelihood)
+        if tol > abs(prev_log_likelihood-log_likelihood):
+            break
+        prev_log_likelihood = log_likelihood
 
     probs = []
     for n in range(dataset.shape[0]):
-        probs.append([multivariate_normal(dataset[n], means[k], covariances[k]) for k in range(n_k)])
+        probs.append([pi[k] * multivariate_normal(dataset[n], means[k], covariances[k]) for k in range(n_k)])
 
     labels = []
     for prob in probs:
