@@ -41,8 +41,9 @@ class DBScan:
         self.centroids = list(set(label))
 
     def predict(self, x):
-        clusters = [x[i] for i in list(set(self.labels))]
-        classes = {i: [] for i in range(len(clusters))}
+        centroids = list(set(self.labels))
+        classes = {i: [] for i in centroids}
+        self.centroids = [x[i] for i in centroids]
 
         for i in range(x.shape[0]):
             classes[self.labels[i]].append(i)

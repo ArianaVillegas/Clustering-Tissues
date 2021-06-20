@@ -62,11 +62,9 @@ class GMM:
 
         prev_log_likelihood = -np.infty
         for itr in range(self.max_iter):
-            print("itr", itr)
             # 2. E step
             gamma = self.__e_step(x)
             N = np.sum(gamma, axis=0)
-            print(N)
 
             # 3. M step
             self.__m_step(x, gamma, N)

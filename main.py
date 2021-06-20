@@ -10,10 +10,10 @@ from src.mean_shift import MeanShift
 df = pd.read_csv('dataset/dataset_tissue.txt', delimiter=",").T.drop('Unnamed: 0')
 y = pd.read_csv('dataset/clase.txt')
 
-svd = TruncatedSVD(n_components=30)
+svd = TruncatedSVD(n_components=200)
 df_svd = svd.fit_transform(df)
 
-classificator = GMM(k=7)
+classificator = DBScan(radio=125, min_pts=4)
 classificator.fit(df_svd)
 classes, clusters = classificator.predict(df_svd).values()
 classes_names = []
