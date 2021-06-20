@@ -92,6 +92,5 @@ class GMM:
         self.clusters = [x[i] for i in clusters]
 
         for i in range(x.shape[0]):
-            if labels[i] > 0:
-                classes[labels[i]].append(i)
+            classes[labels[i]].append(i)
         return {"classes": classes, "centroids": self.clusters}
