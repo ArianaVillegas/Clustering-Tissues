@@ -7,10 +7,10 @@ from src.gmm import GMM
 from src.k_means import KMeans
 from src.mean_shift import MeanShift
 
-df = pd.read_csv('../dataset/dataset_tissue.txt', delimiter=",").T.drop('Unnamed: 0')
-y = pd.read_csv('../dataset/clase.txt')
+df = pd.read_csv('dataset/dataset_tissue.txt', delimiter=",").T.drop('Unnamed: 0')
+y = pd.read_csv('dataset/clase.txt')
 
-svd = TruncatedSVD(n_components=20)
+svd = TruncatedSVD(n_components=30)
 df_svd = svd.fit_transform(df)
 
 classificator = GMM(k=7)
