@@ -2,6 +2,7 @@ import pandas as pd
 
 from sklearn.decomposition import TruncatedSVD
 
+from src.ahc import AHC
 from src.dbscan import DBScan
 from src.gmm import GMM
 from src.k_means import KMeans
@@ -10,10 +11,10 @@ from src.mean_shift import MeanShift
 df = pd.read_csv('dataset/dataset_tissue.txt', delimiter=",").T.drop('Unnamed: 0')
 y = pd.read_csv('dataset/clase.txt')
 
-svd = TruncatedSVD(n_components=200)
+svd = TruncatedSVD(n_components=50)
 df_svd = svd.fit_transform(df)
 
-classificator = DBScan(radio=125, min_pts=4)
+classificator = AHC(k=7)
 classificator.fit(df_svd)
 classes, clusters = classificator.predict(df_svd).values()
 classes_names = []
@@ -24,8 +25,8 @@ for c in classes:
         rep[y.loc[elem, 'x']] += 1
     classes_names.append(max(rep, key=rep.get))
 
-print(len(classes_names))
-print(classes_names)
+print(len(set(classes_names)))
+print(set(classes_names))
 
 correct = 0
 size = 0
